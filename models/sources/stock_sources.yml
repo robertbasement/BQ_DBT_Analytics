@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: stock_data
+    database: stock-backtest-491815
+    schema: stock_data
+    tables:
+      - name: daily_prices_partitioned
+      - name: income_statement
+      - name: monthly_revenue
+      - name: otc_dividend
+      - name: sii_dividend

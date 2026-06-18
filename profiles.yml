@@ -1,0 +1,11 @@
+# 這是放在個人專案根目錄下的 profiles.yml
+bq_dbt_analytics:
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth # 或 service-account
+      project: stock-backtest-491815
+      dataset: stock_analytics
+      location: asia-east1
+      threads: 4
+  target: dev
