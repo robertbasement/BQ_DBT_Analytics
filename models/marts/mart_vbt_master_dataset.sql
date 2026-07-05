@@ -25,7 +25,8 @@ WITH flattened AS (
         MAX(bias20) AS bias20,
 
         ANY_VALUE(rev_box) AS r,
-        ANY_VALUE(fin_box) AS f
+        ANY_VALUE(fin_box) AS f,
+        ANY_VALUE(bs_box) AS b
 
     FROM {{ ref('int_vbt_stack') }}
     GROUP BY date, ticker
@@ -90,6 +91,18 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS eps,
 
+        LAST_VALUE(f.eps_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS eps_ttm,
+
+        LAST_VALUE(f.eps_yoy_growth IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS eps_yoy_growth,
+
         LAST_VALUE(f.operating_margin IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
@@ -120,11 +133,107 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS revenue_month,
 
-        LAST_VALUE(f.data_quarter_label IGNORE NULLS) OVER (
+        LAST_VALUE(f.year_quarter IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS report_quarter
+        ) AS report_quarter,
+
+        LAST_VALUE(b.current_assets IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS current_assets,
+
+        LAST_VALUE(b.non_current_assets IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS non_current_assets,
+
+        LAST_VALUE(b.total_assets IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS total_assets,
+
+        LAST_VALUE(b.current_liabilities IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS current_liabilities,
+
+        LAST_VALUE(b.non_current_liabilities IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS non_current_liabilities,
+
+        LAST_VALUE(b.total_liabilities IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS total_liabilities,
+
+        LAST_VALUE(b.share_capital IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS share_capital,
+
+        LAST_VALUE(b.capital_surplus IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS capital_surplus,
+
+        LAST_VALUE(b.retained_earnings IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS retained_earnings,
+
+        LAST_VALUE(b.total_equity IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS total_equity,
+
+        LAST_VALUE(b.book_value_per_share IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS book_value_per_share,
+
+        LAST_VALUE(b.shares_outstanding IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS shares_outstanding,
+
+        LAST_VALUE(b.debt_ratio IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS debt_ratio,
+
+        LAST_VALUE(b.equity_ratio IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS equity_ratio,
+
+        LAST_VALUE(b.current_ratio IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS current_ratio,
+
+        LAST_VALUE(b.year_quarter IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS balance_sheet_quarter
 
     FROM flattened
 
@@ -134,6 +243,9 @@ final AS (
 
     SELECT
         *,
+
+        SAFE_DIVIDE(d_close, NULLIF(eps_ttm, 0)) AS pe_ttm,
+        SAFE_DIVIDE(d_close, NULLIF(book_value_per_share, 0)) AS pb_ratio,
 
         SAFE_DIVIDE(
             LEAD(d_close, 1) OVER (

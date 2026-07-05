@@ -7,6 +7,7 @@ sources:
     tables:
       - name: daily_prices_partitioned
       - name: income_statement
+      - name: balance_sheet
       - name: monthly_revenue
       - name: otc_dividend
       - name: sii_dividend

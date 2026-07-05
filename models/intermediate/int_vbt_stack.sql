@@ -2,71 +2,146 @@
 
 {{ config(materialized='view') }}
 
-SELECT 
-  date,
-  ticker,
-  open,
-  high,
-  low,
-  adj_close,
-  volume,
-  ma20,
-  ma60,
-  bias20,
-  day_amplitude,
-  CAST(NULL AS STRUCT<
-    revenue INT64, 
-    yoy_growth_pct FLOAT64, 
-    mom_growth_pct FLOAT64,
-    ytd_growth_pct FLOAT64,
-    yoy_triple_increase_signal INT64,
-    yoy_positive_streak_count INT64,
-    data_month_label STRING
-  >) AS rev_box,
-  CAST(NULL AS STRUCT<
-    operating_margin FLOAT64,
-    ebit_volatility FLOAT64,
-    eps FLOAT64,
-    EBIT_signal INT64,
-    EPS_signal INT64,
-    EBIT_diff_signal INT64,
-    EBIT_vol_signal INT64,
-    data_quarter_label STRING
-  >) AS fin_box
-FROM {{ ref('int_daily_indicators') }}
+WITH empty_boxes AS (
 
+  SELECT
+    CAST(NULL AS STRUCT<
+      revenue INT64, 
+      yoy_growth_pct FLOAT64, 
+      mom_growth_pct FLOAT64,
+      ytd_growth_pct FLOAT64,
+      yoy_triple_increase_signal INT64,
+      yoy_positive_streak_count INT64,
+      data_month_label STRING
+    >) AS empty_rev_box,
+
+    CAST(NULL AS STRUCT<
+      operating_margin FLOAT64,
+      ebit_volatility FLOAT64,
+      eps FLOAT64,
+      eps_ttm FLOAT64,
+      eps_yoy_growth FLOAT64,
+      EBIT_signal INT64,
+      EPS_signal INT64,
+      EBIT_diff_signal INT64,
+      EBIT_vol_signal INT64,
+      year_quarter STRING
+    >) AS empty_fin_box,
+
+    CAST(NULL AS STRUCT<
+      current_assets FLOAT64,
+      non_current_assets FLOAT64,
+      total_assets FLOAT64,
+      current_liabilities FLOAT64,
+      non_current_liabilities FLOAT64,
+      total_liabilities FLOAT64,
+      share_capital FLOAT64,
+      share_capital_ntd FLOAT64,
+      shares_outstanding FLOAT64,
+      capital_surplus FLOAT64,
+      retained_earnings FLOAT64,
+      total_equity FLOAT64,
+      book_value_per_share FLOAT64,
+      debt_ratio FLOAT64,
+      equity_ratio FLOAT64,
+      current_ratio FLOAT64,
+      year_quarter STRING
+    >) AS empty_bs_box
+
+),
+
+daily_part AS (
+
+  SELECT 
+    d.date,
+    d.ticker,
+    d.open,
+    d.high,
+    d.low,
+    d.adj_close,
+    d.volume,
+    d.ma20,
+    d.ma60,
+    d.bias20,
+    d.day_amplitude,
+    e.empty_rev_box AS rev_box,
+    e.empty_fin_box AS fin_box,
+    e.empty_bs_box AS bs_box
+  FROM {{ ref('int_daily_indicators') }} d
+  CROSS JOIN empty_boxes e
+
+),
+
+revenue_part AS (
+
+  SELECT
+    r.date,
+    r.ticker,
+    NULL AS open,
+    NULL AS high,
+    NULL AS low,
+    NULL AS adj_close,
+    NULL AS volume,
+    NULL AS ma20,
+    NULL AS ma60,
+    NULL AS bias20,
+    NULL AS day_amplitude,
+    r.rev_box,
+    e.empty_fin_box AS fin_box,
+    e.empty_bs_box AS bs_box
+  FROM {{ ref('int_monthly_revenue_shifter') }} r
+  CROSS JOIN empty_boxes e
+
+),
+
+financial_part AS (
+
+  SELECT
+    f.date,
+    f.ticker,
+    NULL AS open,
+    NULL AS high,
+    NULL AS low,
+    NULL AS adj_close,
+    NULL AS volume,
+    NULL AS ma20,
+    NULL AS ma60,
+    NULL AS bias20,
+    NULL AS day_amplitude,
+    e.empty_rev_box AS rev_box,
+    f.fin_box,
+    e.empty_bs_box AS bs_box
+  FROM {{ ref('int_financial_shifter') }} f
+  CROSS JOIN empty_boxes e
+
+),
+
+balance_sheet_part AS (
+
+  SELECT
+    b.date,
+    b.ticker,
+    NULL AS open,
+    NULL AS high,
+    NULL AS low,
+    NULL AS adj_close,
+    NULL AS volume,
+    NULL AS ma20,
+    NULL AS ma60,
+    NULL AS bias20,
+    NULL AS day_amplitude,
+    e.empty_rev_box AS rev_box,
+    e.empty_fin_box AS fin_box,
+    b.bs_box
+  FROM {{ ref('int_balance_sheet_shifter') }} b
+  CROSS JOIN empty_boxes e
+
+)
+
+SELECT * FROM daily_part
 UNION ALL
-
-SELECT
-  date,
-  ticker, 
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  rev_box,
-  NULL
-FROM {{ ref('int_monthly_revenue_shifter') }}
-
+SELECT * FROM revenue_part
 UNION ALL
-
-SELECT
-  date,
-  ticker, 
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  NULL,
-  fin_box
-FROM {{ ref('int_financial_shifter') }}
+SELECT * FROM financial_part
+UNION ALL
+SELECT * FROM balance_sheet_part

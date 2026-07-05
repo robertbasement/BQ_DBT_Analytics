@@ -21,11 +21,13 @@ WITH raw_financial AS (
       operating_margin,
       ebit_volatility,
       eps,
+      eps_ttm,
+      eps_yoy_growth,
       EBIT_signal,
       EPS_signal,
       EBIT_diff_signal,
       EBIT_vol_signal,
-      year_quarter AS data_quarter_label
+      year_quarter
     ) AS fin_box
 
   FROM {{ ref('int_financial_features') }}

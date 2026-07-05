@@ -69,6 +69,26 @@ signals AS (
     ) AS last_year_q_eps
 
   FROM ratios_calc
+),
+
+ttm_calc AS (
+  SELECT
+    *,
+
+    CASE
+      WHEN COUNT(q_eps) OVER(
+        PARTITION BY ticker
+        ORDER BY year_quarter
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+      ) = 4
+      THEN SUM(q_eps) OVER(
+        PARTITION BY ticker
+        ORDER BY year_quarter
+        ROWS BETWEEN 3 PRECEDING AND CURRENT ROW
+      )
+    END AS eps_ttm
+
+  FROM signals
 )
 
 SELECT
@@ -77,8 +97,10 @@ SELECT
   operating_margin,
   ebit_volatility,
   q_eps AS eps,
+  eps_ttm,
+  SAFE_DIVIDE(q_eps, NULLIF(last_year_q_eps, 0)) - 1 AS eps_yoy_growth,
   IF(min_margin_8q > 0, 1, 0) AS EBIT_signal,
   IF(q_eps > 0, 1, 0) AS EPS_signal,
   IF(operating_margin > prev_margin, 1, 0) AS EBIT_diff_signal,
   IF(ebit_volatility < 0.05, 1, 0) AS EBIT_vol_signal
-FROM signals
+FROM ttm_calc
