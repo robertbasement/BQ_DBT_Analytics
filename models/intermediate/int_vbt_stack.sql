@@ -15,18 +15,47 @@ WITH empty_boxes AS (
       data_month_label STRING
     >) AS empty_rev_box,
 
+    -- CAST(NULL AS STRUCT<
+    --   operating_margin FLOAT64,
+    --   ebit_volatility FLOAT64,
+    --   eps FLOAT64,
+    --   eps_ttm FLOAT64,
+    --   eps_yoy_growth FLOAT64,
+    --   EBIT_signal INT64,
+    --   EPS_signal INT64,
+    --   EBIT_diff_signal INT64,
+    --   EBIT_vol_signal INT64,
+    --   year_quarter STRING
+    -- >) AS empty_fin_box,
+
     CAST(NULL AS STRUCT<
+
+      q_revenue FLOAT64,
+      revenue_ttm FLOAT64,
+      q_operating_income FLOAT64,
+      operating_income_ttm FLOAT64,
+      q_net_income FLOAT64,
+      net_income_ttm FLOAT64,
       operating_margin FLOAT64,
+      operating_margin_ttm FLOAT64,
+      net_margin FLOAT64,
+      net_margin_ttm FLOAT64,
       ebit_volatility FLOAT64,
+      net_margin_volatility FLOAT64,
       eps FLOAT64,
       eps_ttm FLOAT64,
       eps_yoy_growth FLOAT64,
       EBIT_signal INT64,
+      net_income_signal INT64,
       EPS_signal INT64,
       EBIT_diff_signal INT64,
+      net_margin_diff_signal INT64,
       EBIT_vol_signal INT64,
+      net_margin_vol_signal INT64,
       year_quarter STRING
+
     >) AS empty_fin_box,
+
 
     CAST(NULL AS STRUCT<
       current_assets FLOAT64,

@@ -49,6 +49,10 @@ filled AS (
         ma60,
         bias20,
 
+        /*
+         * Monthly revenue features
+         */
+
         LAST_VALUE(r.revenue IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
@@ -85,6 +89,88 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS rev_triple_sig,
 
+        LAST_VALUE(r.data_month_label IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS revenue_month,
+
+        /*
+         * Financial statement features
+         */
+
+        LAST_VALUE(f.q_revenue IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_q_revenue,
+
+        LAST_VALUE(f.revenue_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_revenue_ttm,
+
+        LAST_VALUE(f.q_operating_income IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_q_operating_income,
+
+        LAST_VALUE(f.operating_income_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_operating_income_ttm,
+
+        LAST_VALUE(f.q_net_income IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_q_net_income,
+
+        LAST_VALUE(f.net_income_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS financial_net_income_ttm,
+
+        LAST_VALUE(f.operating_margin IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS op_margin,
+
+        LAST_VALUE(f.operating_margin_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS operating_margin_ttm,
+
+        LAST_VALUE(f.net_margin IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS net_margin,
+
+        LAST_VALUE(f.net_margin_ttm IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS net_margin_ttm,
+
+        LAST_VALUE(f.ebit_volatility IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS ebit_volatility,
+
+        LAST_VALUE(f.net_margin_volatility IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS net_margin_volatility,
+
         LAST_VALUE(f.eps IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
@@ -103,17 +189,17 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS eps_yoy_growth,
 
-        LAST_VALUE(f.operating_margin IGNORE NULLS) OVER (
-            PARTITION BY ticker
-            ORDER BY date
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS op_margin,
-
         LAST_VALUE(f.EBIT_signal IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS EBIT_signal,
+
+        LAST_VALUE(f.net_income_signal IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS net_income_signal,
 
         LAST_VALUE(f.EPS_signal IGNORE NULLS) OVER (
             PARTITION BY ticker
@@ -121,23 +207,39 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS EPS_signal,
 
+        LAST_VALUE(f.EBIT_diff_signal IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS EBIT_diff_signal,
+
+        LAST_VALUE(f.net_margin_diff_signal IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS net_margin_diff_signal,
+
         LAST_VALUE(f.EBIT_vol_signal IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS EBIT_vol_signal,
 
-        LAST_VALUE(r.data_month_label IGNORE NULLS) OVER (
+        LAST_VALUE(f.net_margin_vol_signal IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS revenue_month,
+        ) AS net_margin_vol_signal,
 
         LAST_VALUE(f.year_quarter IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS report_quarter,
+
+        /*
+         * Balance sheet features
+         */
 
         LAST_VALUE(b.current_assets IGNORE NULLS) OVER (
             PARTITION BY ticker
@@ -181,6 +283,18 @@ filled AS (
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS share_capital,
 
+        LAST_VALUE(b.share_capital_ntd IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS share_capital_ntd,
+
+        LAST_VALUE(b.shares_outstanding IGNORE NULLS) OVER (
+            PARTITION BY ticker
+            ORDER BY date
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS shares_outstanding,
+
         LAST_VALUE(b.capital_surplus IGNORE NULLS) OVER (
             PARTITION BY ticker
             ORDER BY date
@@ -204,12 +318,6 @@ filled AS (
             ORDER BY date
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
         ) AS book_value_per_share,
-
-        LAST_VALUE(b.shares_outstanding IGNORE NULLS) OVER (
-            PARTITION BY ticker
-            ORDER BY date
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        ) AS shares_outstanding,
 
         LAST_VALUE(b.debt_ratio IGNORE NULLS) OVER (
             PARTITION BY ticker
@@ -244,8 +352,15 @@ final AS (
     SELECT
         *,
 
-        SAFE_DIVIDE(d_close, NULLIF(eps_ttm, 0)) AS pe_ttm,
-        SAFE_DIVIDE(d_close, NULLIF(book_value_per_share, 0)) AS pb_ratio,
+        SAFE_DIVIDE(
+            d_close,
+            NULLIF(eps_ttm, 0)
+        ) AS pe_ttm,
+
+        SAFE_DIVIDE(
+            d_close,
+            NULLIF(book_value_per_share, 0)
+        ) AS pb_ratio,
 
         SAFE_DIVIDE(
             LEAD(d_close, 1) OVER (

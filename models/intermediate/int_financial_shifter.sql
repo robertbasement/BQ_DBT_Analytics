@@ -17,17 +17,53 @@ WITH raw_financial AS (
       )
     END AS deadline_date,
 
+    -- STRUCT(
+    --   operating_margin,
+    --   ebit_volatility,
+    --   eps,
+    --   eps_ttm,
+    --   eps_yoy_growth,
+    --   EBIT_signal,
+    --   EPS_signal,
+    --   EBIT_diff_signal,
+    --   EBIT_vol_signal,
+    --   year_quarter
+    -- ) AS fin_box
+
     STRUCT(
-      operating_margin,
-      ebit_volatility,
-      eps,
-      eps_ttm,
-      eps_yoy_growth,
-      EBIT_signal,
-      EPS_signal,
-      EBIT_diff_signal,
-      EBIT_vol_signal,
-      year_quarter
+      q_revenue AS q_revenue,
+      revenue_ttm AS revenue_ttm,
+
+      q_operating_income AS q_operating_income,
+      operating_income_ttm AS operating_income_ttm,
+
+      q_net_income AS q_net_income,
+      net_income_ttm AS net_income_ttm,
+
+      operating_margin AS operating_margin,
+      operating_margin_ttm AS operating_margin_ttm,
+
+      net_margin AS net_margin,
+      net_margin_ttm AS net_margin_ttm,
+
+      ebit_volatility AS ebit_volatility,
+      net_margin_volatility AS net_margin_volatility,
+
+      eps AS eps,
+      eps_ttm AS eps_ttm,
+      eps_yoy_growth AS eps_yoy_growth,
+
+      EBIT_signal AS EBIT_signal,
+      net_income_signal AS net_income_signal,
+      EPS_signal AS EPS_signal,
+
+      EBIT_diff_signal AS EBIT_diff_signal,
+      net_margin_diff_signal AS net_margin_diff_signal,
+
+      EBIT_vol_signal AS EBIT_vol_signal,
+      net_margin_vol_signal AS net_margin_vol_signal,
+
+      year_quarter AS year_quarter
     ) AS fin_box
 
   FROM {{ ref('int_financial_features') }}
