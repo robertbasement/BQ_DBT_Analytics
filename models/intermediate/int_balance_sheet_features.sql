@@ -14,7 +14,7 @@ WITH bs AS (
         SAFE_CAST(non_current_liabilities AS FLOAT64) AS non_current_liabilities,
         SAFE_CAST(total_liabilities AS FLOAT64) AS total_liabilities,
 
-        SAFE_CAST(share_capital AS FLOAT64) AS share_capital,              -- 單位：千元
+        SAFE_CAST(share_capital AS FLOAT64) AS share_capital,
         SAFE_CAST(capital_surplus AS FLOAT64) AS capital_surplus,
         SAFE_CAST(retained_earnings AS FLOAT64) AS retained_earnings,
         SAFE_CAST(total_equity AS FLOAT64) AS total_equity,
@@ -33,9 +33,67 @@ parsed AS (
         *,
 
         SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^(\d{4})-[1-4]$') AS INT64) AS year,
-        SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^\d{4}-([1-4])$') AS INT64) AS quarter
+        SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^\d{4}-([1-4])$') AS INT64) AS quarter,
+
+        DATE(
+            SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^(\d{4})-[1-4]$') AS INT64),
+            CASE SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^\d{4}-([1-4])$') AS INT64)
+                WHEN 1 THEN 3
+                WHEN 2 THEN 6
+                WHEN 3 THEN 9
+                WHEN 4 THEN 12
+            END,
+            CASE SAFE_CAST(REGEXP_EXTRACT(year_quarter, r'^\d{4}-([1-4])$') AS INT64)
+                WHEN 1 THEN 31
+                WHEN 2 THEN 30
+                WHEN 3 THEN 30
+                WHEN 4 THEN 31
+            END
+        ) AS quarter_end_date
 
     FROM bs
+
+),
+
+with_action AS (
+
+    SELECT
+        p.*,
+
+        COALESCE((
+            SELECT EXP(SUM(LN(a.per_share_factor)))
+            FROM {{ ref('manual_corporate_actions') }} a
+            WHERE a.ticker = p.ticker
+              AND p.quarter_end_date < a.effective_date
+        ), 1.0) AS per_share_factor,
+
+        COALESCE((
+            SELECT EXP(SUM(LN(a.share_factor)))
+            FROM {{ ref('manual_corporate_actions') }} a
+            WHERE a.ticker = p.ticker
+              AND p.quarter_end_date < a.effective_date
+        ), 1.0) AS share_factor
+
+    FROM parsed p
+
+),
+
+precalc AS (
+
+    SELECT
+        *,
+
+        book_value_per_share * per_share_factor AS adjusted_book_value_per_share,
+
+        SAFE_DIVIDE(share_capital * 1000, 10) * share_factor
+            AS shares_outstanding_from_capital,
+
+        SAFE_DIVIDE(
+            total_equity * 1000,
+            book_value_per_share * per_share_factor
+        ) AS shares_outstanding_from_bvps
+
+    FROM with_action
 
 ),
 
@@ -60,12 +118,8 @@ calc AS (
         capital_surplus,
         retained_earnings,
         total_equity,
-        book_value_per_share,
 
-        -- =====================================
-        -- Unit normalization
-        -- raw 財報金額單位：千元
-        -- =====================================
+        adjusted_book_value_per_share AS book_value_per_share,
 
         share_capital * 1000 AS share_capital_ntd,
         total_assets * 1000 AS total_assets_ntd,
@@ -76,24 +130,18 @@ calc AS (
         retained_earnings * 1000 AS retained_earnings_ntd,
         capital_surplus * 1000 AS capital_surplus_ntd,
 
-        -- =====================================
-        -- Share related
-        -- 台股普通股面額通常 10 元
-        -- =====================================
+        -- 主股數：使用 total_equity / adjusted BVPS。
+        -- 這可以正確處理國巨這種面額變更後 share_capital 不再適合用 /10 推股數的情況。
+        shares_outstanding_from_bvps AS shares_outstanding,
 
-        SAFE_DIVIDE(share_capital * 1000, 10) AS shares_outstanding,
-
-        -- 用 BVPS 反推 shares，作為檢查用
-        SAFE_DIVIDE(total_equity * 1000, book_value_per_share) AS shares_from_bvps,
+        -- 保留舊方法作為檢查欄位
+        shares_outstanding_from_capital,
+        shares_outstanding_from_bvps AS shares_from_bvps,
 
         SAFE_DIVIDE(
-            SAFE_DIVIDE(share_capital * 1000, 10),
-            SAFE_DIVIDE(total_equity * 1000, book_value_per_share)
+            shares_outstanding_from_capital,
+            shares_outstanding_from_bvps
         ) AS share_count_check_ratio,
-
-        -- =====================================
-        -- Balance sheet structure
-        -- =====================================
 
         SAFE_DIVIDE(current_assets, total_assets) AS current_assets_ratio,
         SAFE_DIVIDE(non_current_assets, total_assets) AS non_current_assets_ratio,
@@ -106,56 +154,23 @@ calc AS (
 
         SAFE_DIVIDE(total_assets, total_equity) AS financial_leverage,
 
-        -- =====================================
-        -- Liquidity
-        -- =====================================
-
         SAFE_DIVIDE(current_assets, current_liabilities) AS current_ratio,
 
         current_assets - current_liabilities AS working_capital,
         (current_assets - current_liabilities) * 1000 AS working_capital_ntd,
 
-        SAFE_DIVIDE(
-            current_assets - current_liabilities,
-            total_assets
-        ) AS working_capital_to_assets,
-
-        SAFE_DIVIDE(
-            current_assets - current_liabilities,
-            total_equity
-        ) AS working_capital_to_equity,
-
-        -- =====================================
-        -- Capital structure
-        -- =====================================
+        SAFE_DIVIDE(current_assets - current_liabilities, total_assets) AS working_capital_to_assets,
+        SAFE_DIVIDE(current_assets - current_liabilities, total_equity) AS working_capital_to_equity,
 
         SAFE_DIVIDE(retained_earnings, total_equity) AS retained_earnings_to_equity,
-
         SAFE_DIVIDE(capital_surplus, total_equity) AS capital_surplus_to_equity,
-
         SAFE_DIVIDE(share_capital, total_equity) AS share_capital_to_equity,
-
         SAFE_DIVIDE(total_liabilities, total_equity) AS liabilities_to_equity,
 
-        -- =====================================
-        -- Per share balance sheet items
-        -- =====================================
-
-        SAFE_DIVIDE(total_assets * 1000, SAFE_DIVIDE(share_capital * 1000, 10))
-            AS assets_per_share,
-
-        SAFE_DIVIDE(total_liabilities * 1000, SAFE_DIVIDE(share_capital * 1000, 10))
-            AS liabilities_per_share,
-
-        SAFE_DIVIDE(total_equity * 1000, SAFE_DIVIDE(share_capital * 1000, 10))
-            AS equity_per_share_calc,
-
-        SAFE_DIVIDE(retained_earnings * 1000, SAFE_DIVIDE(share_capital * 1000, 10))
-            AS retained_earnings_per_share,
-
-        -- =====================================
-        -- Quality flags
-        -- =====================================
+        SAFE_DIVIDE(total_assets * 1000, shares_outstanding_from_bvps) AS assets_per_share,
+        SAFE_DIVIDE(total_liabilities * 1000, shares_outstanding_from_bvps) AS liabilities_per_share,
+        SAFE_DIVIDE(total_equity * 1000, shares_outstanding_from_bvps) AS equity_per_share_calc,
+        SAFE_DIVIDE(retained_earnings * 1000, shares_outstanding_from_bvps) AS retained_earnings_per_share,
 
         CASE
             WHEN total_assets > 0
@@ -174,16 +189,17 @@ calc AS (
         END AS is_balance_equation_roughly_valid,
 
         CASE
-            WHEN book_value_per_share > 0
+            WHEN adjusted_book_value_per_share > 0
+             AND shares_outstanding_from_bvps > 0
              AND SAFE_DIVIDE(
-                    SAFE_DIVIDE(share_capital * 1000, 10),
-                    SAFE_DIVIDE(total_equity * 1000, book_value_per_share)
+                    shares_outstanding_from_capital,
+                    shares_outstanding_from_bvps
                  ) BETWEEN 0.8 AND 1.2
             THEN TRUE
             ELSE FALSE
         END AS is_share_count_reasonable
 
-    FROM parsed
+    FROM precalc
 
 )
 

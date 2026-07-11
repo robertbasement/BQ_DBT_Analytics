@@ -1,16 +1,34 @@
 {{ config(materialized='view') }}
 
+
+
 WITH base AS (
   SELECT 
-    ticker,
-    year_quarter,
-    LEFT(year_quarter, 4) AS year_label,
-    RIGHT(year_quarter, 1) AS quarter_label,
-    revenue,
-    operating_income,
-    eps,
-    net_income
-  FROM {{ ref('stg_income_statement') }}
+    i.ticker,
+    i.year_quarter,
+    LEFT(i.year_quarter, 4) AS year_label,
+    RIGHT(i.year_quarter, 1) AS quarter_label,
+    i.revenue,
+    i.operating_income,
+    i.net_income,
+
+    i.eps * COALESCE((
+      SELECT EXP(SUM(LN(a.per_share_factor)))
+      FROM {{ ref('manual_corporate_actions') }} a
+      WHERE a.ticker = i.ticker
+        AND DATE(
+          SAFE_CAST(LEFT(i.year_quarter, 4) AS INT64),
+          CASE SAFE_CAST(RIGHT(i.year_quarter, 1) AS INT64)
+            WHEN 1 THEN 3
+            WHEN 2 THEN 6
+            WHEN 3 THEN 9
+            WHEN 4 THEN 12
+          END,
+          30
+        ) < a.effective_date
+    ), 1.0) AS eps
+
+  FROM {{ ref('stg_income_statement') }} i
 ),
 
 single_quarter_calc AS (

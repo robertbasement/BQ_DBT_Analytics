@@ -11,4 +11,4 @@ ENV DBT_PROFILES_DIR=/app
 
 RUN chmod +x run_dbt.sh
 
-CMD ["./run_dbt.sh"]
+ENTRYPOINT ["./run_dbt.sh"]

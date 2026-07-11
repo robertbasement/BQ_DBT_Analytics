@@ -37,13 +37,15 @@ cumulative_calculation AS (
 )
 
 SELECT
-  * EXCEPT(daily_factor, rev_cum_factor),
+  c.* EXCEPT(daily_factor, rev_cum_factor),
 
-  CASE
-    WHEN ticker = '0050'
-     AND date >= DATE '2025-06-18'
-    THEN close * rev_cum_factor * 4
-    ELSE close * rev_cum_factor
-  END AS adj_close
+  c.close
+  * c.rev_cum_factor
+  * COALESCE((
+      SELECT EXP(SUM(LN(a.price_factor)))
+      FROM {{ ref('manual_corporate_actions') }} a
+      WHERE a.ticker = c.ticker
+        AND c.date < a.effective_date
+    ), 1.0) AS adj_close
 
-FROM cumulative_calculation
+FROM cumulative_calculation c

@@ -32,7 +32,16 @@ clean-targets:         # directories to be removed by `dbt clean`
 models:
   bq_dbt_analytics:
     # Config indicated by + and applies to all files under models/example/
-    example:
-      +materialized: view
     marts:
       +materialized: table
+
+seeds:
+  bq_dbt_analytics:
+    manual_corporate_actions:
+      +column_types:
+        ticker: string
+        effective_date: date
+        price_factor: float64
+        per_share_factor: float64
+        share_factor: float64
+        note: string
