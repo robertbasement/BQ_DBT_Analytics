@@ -38,5 +38,5 @@ SELECT
 
 
 
-FROM {{ ref('mart_daily_prices_adjusted') }}
+FROM {{ ref('int_daily_prices_adjusted') }}
 WHERE date >= DATE '2009-01-01'
